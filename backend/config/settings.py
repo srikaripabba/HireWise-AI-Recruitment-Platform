@@ -129,14 +129,23 @@ REST_FRAMEWORK = {
     ),
 }
 
+
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.environ.get(
-        "CORS_ALLOWED_ORIGINS",
-        "http://localhost:5173,https://hirewise-ai-recruitment-platform-1.onrender.com"
+        "CORS_ALLOWED_ORIGINS", ""
     ).split(",")
     if origin.strip()
 ]
+
+# Allow the local development frontend and deployed frontend.
+for origin in [
+    "http://localhost:5173",
+    "https://hirewise-ai-recruitment-platform-1.onrender.com",
+]:
+    if origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(origin)
+
 
 
 # Internationalization

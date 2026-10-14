@@ -39,35 +39,67 @@ def split_required_skills(required_skills):
 
 
 def skill_is_present(skill, resume_text):
-    """Find a complete skill while tolerating spaces and punctuation."""
+    """Match skills using normalized text and common skill aliases."""
     target = normalize_skill(skill)
-
-    if not target:
-        return False
-
     text = (resume_text or "").lower()
 
-    # Compare normalized text but retain word boundaries to prevent
-    # Java from matching JavaScript.
+    if not target or not text.strip():
+        return False
+
+    # Normalize punctuation and whitespace while preserving word boundaries.
     normalized_text = re.sub(r"[^a-z0-9+#]+", " ", text)
+    normalized_text = re.sub(r"\s+", " ", normalized_text).strip()
 
-    for match in re.finditer(r"[a-z0-9+#]+(?:\s+[a-z0-9+#]+)*", normalized_text):
-        candidate = normalize_skill(match.group())
+    # Common abbreviations and equivalent skill names.
+    aliases = {
+        "datastructuresandalgorithms": [
+            "dsa",
+            "datastructuresalgorithms",
+        ],
+        "postgresql": ["postgres"],
+        "powerbi": ["power bi"],
+        "javascript": ["js"],
+        "typescript": ["ts"],
+    }
 
-        if candidate == target:
+    targets = [target]
+    targets.extend(aliases.get(target, []))
+
+    # Compare complete normalized words/phrases, not partial words.
+    compact_text = normalize_skill(normalized_text)
+
+    for candidate in targets:
+        candidate = normalize_skill(candidate)
+        if not candidate:
+            continue
+
+        # Exact normalized phrase match.
+        pattern = (
+            r"(?<![a-z0-9])"
+            + r"\s+".join(
+                re.escape(part)
+                for part in re.findall(
+                    r"[a-z0-9+#]+",
+                    candidate
+                )
+            )
+            + r"(?![a-z0-9])"
+        )
+
+        if re.search(pattern, normalized_text):
             return True
 
-    # Handle skills written without spaces, such as DjangoRESTAPI.
-    compact_text = re.sub(r"[^a-z0-9+#]", "", text)
+        # Handle compact forms such as DjangoRESTAPI.
+        compact_pattern = (
+            r"(?<![a-z0-9])"
+            + re.escape(candidate)
+            + r"(?![a-z0-9])"
+        )
 
-    # Require alphanumeric boundaries around the skill.
-    pattern = (
-        r"(?<![a-z0-9])"
-        + r"[\W_]*".join(re.escape(char) for char in target)
-        + r"(?![a-z0-9])"
-    )
+        if re.search(compact_pattern, text, flags=re.I):
+            return True
 
-    return bool(re.search(pattern, text, flags=re.I))
+    return False
 
 
 def calculate_similarity(job_description, required_skills, resume_text):
